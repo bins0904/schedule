@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ㄟ嘿嘿嘿嘿 </title>
+    <link rel="stylesheet" href="大四下課表.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="container">
+            <div class="header-main">
+                <div class="logo-circle">M</div>
+                <div class="header-text">
+                    <h1 class="title">
+                        你們好啊
+                    </h1>
+                    <p class="subtitle">
+                        抱歉這是臨診第1~8組的課表
+                       <br> 欸現在沒有內分泌跟GI，還沒給<br>
+                    </p>
+                </div>
+            </div>
+
+            <div class="toolbar">
+                <div class="toolbar-row">
+                    <span class="label-with-icon">
+                        <span class="icon">📅</span>
+                        <span>週次</span>
+                    </span>
+                    <select id="week-select" class="select-control"></select>
+                    <button id="midterm-button" class="secondary-button">期中考</button>
+                </div>
+
+                <div class="toolbar-row">
+                    <span class="label-with-icon">
+                        <span class="icon">📆</span>
+                        <span>日期</span>
+                    </span>
+                    <div id="date-selector" class="chip-group"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container main-content" id="schedule-container">
+        <!-- 課程卡片由 JS 動態產生 -->
+    </main>
+
+    <footer class="app-footer">
+        <p>ㄟ嘿反正根本不會去上課</p>
+        <p class="footer-note">開學第一天我給拉完了。</p>
+    </footer>
+
+    <script src="大四下課表.js"></script>
+</body>
+</html>
