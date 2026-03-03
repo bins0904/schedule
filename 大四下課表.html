@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ㄟ嘿嘿嘿嘿 </title>
     <link rel="stylesheet" href="大四下課表.css">
-    <!-- Firebase（跨裝置登入與雲端筆記，請在 JS 檔填入 firebaseConfig） -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <header class="app-header">
@@ -38,7 +34,6 @@
                     <button id="rotation-button" class="secondary-button">臨技、臨診、實診輪訓課表</button>
                     <button id="pbl-button" class="secondary-button">系統課課表 (PBL)</button>
                     <button id="rotation-rule-button" class="secondary-button">輪訓規則 (3/11後)</button>
-                    <button id="notes-main-toggle" class="secondary-button">課後作業</button>
                 </div>
 
                 <div class="toolbar-row">
@@ -49,85 +44,9 @@
                     <div id="date-selector" class="chip-group"></div>
                 </div>
 
-                <section id="notes-panel" class="notes-panel" aria-label="課後作業紀錄">
-                    <header class="notes-panel__header">
-                        <div class="notes-panel__title-group">
-                            <div class="notes-panel__title">課後作業紀錄</div>
-                            <div class="notes-panel__subtitle" id="notes-status">未登入：只會存在這台電腦</div>
-                        </div>
-                        <div class="notes-panel__right">
-                            <button id="notes-toggle" class="secondary-button notes-toggle-button" type="button" aria-expanded="true">
-                                收起作業區
-                            </button>
-                            <div class="notes-panel__auth">
-                                <input id="auth-email" class="notes-input" type="email" placeholder="學校信箱" autocomplete="email">
-                                <input id="auth-password" class="notes-input" type="password" placeholder="密碼（至少 6 碼）" autocomplete="current-password">
-                                <button id="auth-login" class="secondary-button" type="button">登入 / 註冊</button>
-                                <button id="auth-google" class="secondary-button" type="button">用 Google 登入</button>
-                                <button id="auth-logout" class="secondary-button" type="button" hidden>登出</button>
-                            </div>
-                            <button id="hw-open-modal" class="secondary-button" type="button">新增作業</button>
-                        </div>
-                    </header>
-                    <div class="notes-panel__body">
-                        <div id="homework-alert" class="homework-alert" hidden></div>
-
-                        <ul id="homework-list" class="homework-list" aria-label="未完成作業清單">
-                            <!-- 由 JS 動態產生 -->
-                        </ul>
-
-                        <div class="notes-panel__hint">
-                            未登入：作業只存在這台電腦。登入後會同步到雲端，換裝置登入同一帳號也能看到同一份作業。
-                        </div>
-                    </div>
-                </section>
             </div>
         </div>
     </header>
-
-    <!-- 課後作業：新增 / 編輯小視窗 -->
-    <div id="hw-modal" class="modal-backdrop" hidden>
-        <div class="modal modal--small homework-modal" role="dialog" aria-modal="true" aria-label="新增課後作業">
-            <div class="modal__header">
-                <div class="modal__title">新增課後作業</div>
-                <div class="modal__actions">
-                    <button id="hw-modal-close" class="secondary-button" type="button">關閉</button>
-                </div>
-            </div>
-            <div class="modal__body">
-                <div class="homework-form">
-                    <div class="homework-form__row">
-                        <label class="homework-label">
-                            日期
-                            <input id="hw-date" type="date" class="notes-input">
-                        </label>
-                        <label class="homework-label">
-                            課程
-                            <input id="hw-course" class="notes-input homework-input--full" list="hw-course-list" placeholder="可手動輸入，或從當天課程選擇">
-                            <datalist id="hw-course-list"></datalist>
-                        </label>
-                    </div>
-                    <div class="homework-form__row">
-                        <label class="homework-label homework-label--full">
-                            作業內容
-                            <input id="hw-title" type="text" class="notes-input homework-input--full" placeholder="例如：寫某輪訓病例報告">
-                        </label>
-                    </div>
-                    <div class="homework-form__row homework-form__row--footer">
-                        <label class="homework-label">
-                            Deadline
-                            <input id="hw-deadline" type="datetime-local" class="notes-input">
-                        </label>
-                        <label class="homework-label homework-label--full">
-                            作業備註
-                            <input id="hw-note" type="text" class="notes-input homework-input--full" placeholder="分組、帶什麼東西、繳交方式等">
-                        </label>
-                        <button id="hw-add" class="secondary-button" type="button">新增</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div id="rotation-modal" class="modal-backdrop" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-label="Google Sheet">

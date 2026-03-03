@@ -1,4 +1,4 @@
-// 課表資料（與原本相同，只是移到獨立 JS 檔）
+// 課表資料
 const scheduleData = [
     // Week 1
     { w: 1, date: "2026/2/23", day: "一", time: "08:10-10:00", type: "緒論", title: "臨床醫學簡介", teacher: "方基存", loc: "B0204", note: "" },
@@ -206,25 +206,6 @@ const PBL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ijyCRlnWAL_tHmnb2
 // 輪訓規則 PDF（與 HTML 同資料夾下的檔案）
 const ROTATION_RULE_PDF_URL = "輪訓規則.pdf";
 
-// Firebase 設定（請到 Firebase 主控台複製設定，貼到這裡）
-// https://console.firebase.google.com → 建立專案 → 新增 Web App → 複製「Firebase SDK snippet」裡的 config
-const firebaseConfig = {
-    apiKey: "AIzaSyD_VD8iy47EnT9fT43ru44bWlm4PhF2JQU",
-    authDomain: "homework-e2ec4.firebaseapp.com",
-    projectId: "homework-e2ec4",
-    storageBucket: "homework-e2ec4.firebasestorage.app",
-    messagingSenderId: "856369932034",
-    appId: "1:856369932034:web:52d9f40c467c7f4031c41b",
-    measurementId: "G-ECRB4TBYLN"
-};
-
-let firebaseApp = null;
-let firebaseAuth = null;
-let firebaseDb = null;
-let currentUser = null;
-let homeworkUnsubscribe = null;
-let currentHomeworkItems = [];
-
 // 狀態變數
 let selectedWeek = null;
 let selectedDate = "";
@@ -243,31 +224,6 @@ const rotationIframeEl = document.getElementById("rotation-iframe");
 const rotationCloseEl = document.getElementById("rotation-close");
 const rotationOpenNewEl = document.getElementById("rotation-open-new");
 const sheetModalTitleEl = document.getElementById("sheet-modal-title");
-const hwModalEl = document.getElementById("hw-modal");
-const hwModalCloseEl = document.getElementById("hw-modal-close");
-const hwModalOpenEl = document.getElementById("hw-open-modal");
-
-// 筆記與登入相關 DOM
-const notesStatusEl = document.getElementById("notes-status");
-const authEmailEl = document.getElementById("auth-email");
-const authPasswordEl = document.getElementById("auth-password");
-const authLoginEl = document.getElementById("auth-login");
-const authGoogleEl = document.getElementById("auth-google");
-const authLogoutEl = document.getElementById("auth-logout");
-const hwDateEl = document.getElementById("hw-date");
-const hwCourseEl = document.getElementById("hw-course");
-const hwCourseListEl = document.getElementById("hw-course-list");
-const hwTitleEl = document.getElementById("hw-title");
-const hwDeadlineEl = document.getElementById("hw-deadline");
-const hwNoteEl = document.getElementById("hw-note");
-const hwAddEl = document.getElementById("hw-add");
-const hwAlertEl = document.getElementById("homework-alert");
-const hwListEl = document.getElementById("homework-list");
-const notesPanelEl = document.getElementById("notes-panel");
-const notesToggleEl = document.getElementById("notes-toggle");
-const notesMainToggleEl = document.getElementById("notes-main-toggle");
-
-const NOTES_COLLAPSE_KEY = "notes_panel_collapsed_v1";
 
 // 有課的週次
 const availableWeeks = [...new Set(scheduleData.map((item) => item.w))].sort((a, b) => a - b);
@@ -326,272 +282,6 @@ function closeRotationModal() {
     rotationModalEl.hidden = true;
     rotationIframeEl.removeAttribute("src");
     document.body.style.overflow = "";
-}
-
-// Firebase：簡單防呆，避免還沒貼 config 時就報錯到處都是
-function isFirebaseConfigFilled() {
-    if (!firebaseConfig || !firebaseConfig.apiKey) return false;
-    return !firebaseConfig.apiKey.startsWith("在這裡貼上");
-}
-
-function initFirebaseIfNeeded() {
-    if (firebaseApp || !window.firebase) return;
-    if (!isFirebaseConfigFilled()) {
-        // 沒有設定完整 config：維持「本機暫存」模式
-        return;
-    }
-    firebaseApp = firebase.initializeApp(firebaseConfig);
-    firebaseAuth = firebase.auth();
-    firebaseDb = firebase.firestore();
-}
-
-async function saveNotesToLocal(note) {
-    try {
-        window.localStorage.setItem("schedule_notes_local", note || "");
-    } catch {
-        // ignore
-    }
-}
-
-function loadNotesFromLocal() {
-    try {
-        return window.localStorage.getItem("schedule_notes_local") || "";
-    } catch {
-        return "";
-    }
-}
-
-async function saveNotesToCloud(uid, note) {
-    if (!firebaseDb || !uid) return;
-    try {
-        await firebaseDb.collection("notes").doc(uid).set(
-            {
-                text: note || "",
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-        );
-    } catch (error) {
-        console.error("儲存雲端筆記失敗", error);
-    }
-}
-
-async function loadNotesFromCloud(uid) {
-    if (!firebaseDb || !uid) return null;
-    try {
-        const snap = await firebaseDb.collection("notes").doc(uid).get();
-        if (!snap.exists) return null;
-        const data = snap.data();
-        return data && data.text ? String(data.text) : "";
-    } catch (error) {
-        console.error("讀取雲端筆記失敗", error);
-        return null;
-    }
-}
-
-function updateNotesStatus() {
-    if (!notesStatusEl) return;
-    if (!isFirebaseConfigFilled()) {
-        notesStatusEl.textContent = "未設定 Firebase：目前只會存在這台電腦";
-        return;
-    }
-    if (!currentUser) {
-        notesStatusEl.textContent = "未登入：僅暫存在本機，建議登入以跨裝置同步";
-    } else {
-        notesStatusEl.textContent = `已登入：${currentUser.email || "匿名"}（筆記已同步到雲端）`;
-    }
-}
-
-function setAuthUiLoggedIn(isLoggedIn) {
-    if (!authLoginEl || !authLogoutEl) return;
-    authLogoutEl.hidden = !isLoggedIn;
-    authLoginEl.hidden = isLoggedIn;
-    if (isLoggedIn) {
-        authEmailEl.disabled = true;
-        authPasswordEl.disabled = true;
-    } else {
-        authEmailEl.disabled = false;
-        authPasswordEl.disabled = false;
-    }
-}
-
-function setNotesPanelCollapsed(collapsed) {
-    if (!notesPanelEl || !notesToggleEl) return;
-    if (collapsed) {
-        notesPanelEl.classList.add("notes-panel--collapsed");
-        notesToggleEl.textContent = "展開作業區";
-        notesToggleEl.setAttribute("aria-expanded", "false");
-    } else {
-        notesPanelEl.classList.remove("notes-panel--collapsed");
-        notesToggleEl.textContent = "收起作業區";
-        notesToggleEl.setAttribute("aria-expanded", "true");
-    }
-    try {
-        window.localStorage.setItem(NOTES_COLLAPSE_KEY, collapsed ? "1" : "0");
-    } catch {
-        // ignore
-    }
-}
-
-function setNotesPanelVisible(visible) {
-    if (!notesPanelEl) return;
-    notesPanelEl.style.display = visible ? "" : "none";
-    if (notesMainToggleEl) {
-        notesMainToggleEl.textContent = visible ? "關閉課後作業" : "課後作業";
-    }
-}
-
-function initNotes() {
-    // 先更新狀態列
-    updateNotesStatus();
-
-    // 無 Firebase 設定：純本機模式
-    if (!isFirebaseConfigFilled()) {
-        const localItems = readLocalHomework();
-        currentHomeworkItems = localItems;
-        renderHomeworkList(currentHomeworkItems);
-        return;
-    }
-
-    initFirebaseIfNeeded();
-    if (!firebaseAuth) {
-        // 理論上不會發生，但保險處理：退回本機模式
-        const localItems = readLocalHomework();
-        currentHomeworkItems = localItems;
-        renderHomeworkList(currentHomeworkItems);
-        return;
-    }
-
-    // 先顯示本機資料，避免剛載入頁面時一片空白
-    const bootstrapLocalItems = readLocalHomework();
-    if (bootstrapLocalItems.length > 0) {
-        currentHomeworkItems = bootstrapLocalItems;
-        renderHomeworkList(currentHomeworkItems);
-    }
-
-    firebaseAuth.onAuthStateChanged(async (user) => {
-        currentUser = user || null;
-        setAuthUiLoggedIn(!!currentUser);
-        updateNotesStatus();
-
-        if (homeworkUnsubscribe) {
-            homeworkUnsubscribe();
-            homeworkUnsubscribe = null;
-        }
-
-        // 已登入：改用雲端資料為主
-        if (currentUser && firebaseDb) {
-            // 即時監聽
-            homeworkUnsubscribe = firebaseDb
-                .collection("homework")
-                .where("uid", "==", currentUser.uid)
-                .onSnapshot((snap) => {
-                    const items = [];
-                    snap.forEach((doc) => items.push({ id: doc.id, ...doc.data() }));
-                    // 在前端依 deadline / createdAt 排序，避免需要 Firestore 複合索引
-                    const sorted = items.sort((a, b) => {
-                        if (a.deadline && b.deadline) {
-                            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-                        }
-                        return (a.createdAt || 0) - (b.createdAt || 0);
-                    });
-                    currentHomeworkItems = sorted;
-                    renderHomeworkList(currentHomeworkItems);
-                });
-
-            // 再做一次一次性讀取，確保重新整理後能把舊作業全部載進來
-            try {
-                const snap = await firebaseDb
-                    .collection("homework")
-                    .where("uid", "==", currentUser.uid)
-                    .get();
-                const items = [];
-                snap.forEach((doc) => items.push({ id: doc.id, ...doc.data() }));
-                if (items.length > 0) {
-                    const sorted = items.sort((a, b) => {
-                        if (a.deadline && b.deadline) {
-                            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-                        }
-                        return (a.createdAt || 0) - (b.createdAt || 0);
-                    });
-                    currentHomeworkItems = sorted;
-                    renderHomeworkList(currentHomeworkItems);
-                }
-            } catch (e) {
-                console.error("初次載入雲端作業失敗", e);
-            }
-        } else {
-            // 未登入：使用本機作業
-            const localItems = readLocalHomework();
-            currentHomeworkItems = localItems;
-            renderHomeworkList(currentHomeworkItems);
-        }
-    });
-
-    if (authLoginEl) {
-        authLoginEl.addEventListener("click", async () => {
-            if (!firebaseAuth) return;
-            const email = authEmailEl.value.trim();
-            const password = authPasswordEl.value;
-            if (!email || !password) {
-                alert("請輸入學校信箱與至少 6 碼的密碼。");
-                return;
-            }
-            try {
-                // 先嘗試登入，若帳號不存在再自動註冊
-                await firebaseAuth.signInWithEmailAndPassword(email, password);
-            } catch (error) {
-                if (error.code === "auth/user-not-found") {
-                    const ok = window.confirm("找不到帳號，要直接以這個信箱註冊嗎？");
-                    if (!ok) return;
-                    await firebaseAuth.createUserWithEmailAndPassword(email, password);
-                } else {
-                    console.error("登入失敗", error);
-                    alert("登入失敗：" + (error.message || error.code));
-                }
-            }
-        });
-    }
-
-    if (authGoogleEl) {
-        authGoogleEl.addEventListener("click", async () => {
-            if (!firebaseAuth) return;
-            try {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                await firebaseAuth.signInWithPopup(provider);
-            } catch (error) {
-                console.error("Google 登入失敗", error);
-                alert("Google 登入失敗：" + (error.message || error.code));
-            }
-        });
-    }
-
-    if (authLogoutEl) {
-        authLogoutEl.addEventListener("click", async () => {
-            if (!firebaseAuth) return;
-            try {
-                await firebaseAuth.signOut();
-            } catch (error) {
-                console.error("登出失敗", error);
-            }
-        });
-    }
-
-    // 作業表單初始化：日期預設今天
-    if (hwDateEl) {
-        const now = new Date();
-        const m = String(now.getMonth() + 1).padStart(2, "0");
-        const d = String(now.getDate()).padStart(2, "0");
-        hwDateEl.value = `${now.getFullYear()}-${m}-${d}`;
-        updateHomeworkCourseSuggestions();
-        hwDateEl.addEventListener("change", updateHomeworkCourseSuggestions);
-    }
-
-    if (hwAddEl) {
-        hwAddEl.addEventListener("click", handleAddHomework);
-    }
-
-    // 其餘載入邏輯交由上面的 onAuthStateChanged / 本機模式處理
 }
 
 function getHomeworkFormData() {
@@ -1261,33 +951,6 @@ function init() {
         });
     }
 
-    // 一開始整個課後作業區（含登入）預設收起來
-    setNotesPanelVisible(false);
-
-    if (notesMainToggleEl) {
-        notesMainToggleEl.addEventListener("click", () => {
-            if (!notesPanelEl) return;
-            const currentlyHidden = notesPanelEl.style.display === "none";
-            setNotesPanelVisible(currentlyHidden);
-        });
-    }
-
-    // 課後作業紀錄收合狀態
-    if (notesPanelEl && notesToggleEl) {
-        let collapsed = false;
-        try {
-            collapsed = window.localStorage.getItem(NOTES_COLLAPSE_KEY) === "1";
-        } catch {
-            collapsed = false;
-        }
-        setNotesPanelCollapsed(collapsed);
-
-        notesToggleEl.addEventListener("click", () => {
-            const isCollapsed = notesPanelEl.classList.contains("notes-panel--collapsed");
-            setNotesPanelCollapsed(!isCollapsed);
-        });
-    }
-
     if (midtermButtonEl) {
         midtermButtonEl.addEventListener("click", () => {
             isMidtermMode = !isMidtermMode;
@@ -1324,32 +987,6 @@ function init() {
         rotationCloseEl.addEventListener("click", closeRotationModal);
     }
 
-    if (hwModalOpenEl && hwModalEl) {
-        hwModalOpenEl.addEventListener("click", () => {
-            hwModalEl.hidden = false;
-            document.body.style.overflow = "hidden";
-            if (hwTitleEl) {
-                hwTitleEl.focus();
-            }
-        });
-    }
-
-    if (hwModalCloseEl && hwModalEl) {
-        hwModalCloseEl.addEventListener("click", () => {
-            hwModalEl.hidden = true;
-            document.body.style.overflow = "";
-        });
-    }
-
-    if (hwModalEl) {
-        hwModalEl.addEventListener("click", (event) => {
-            if (event.target === hwModalEl) {
-                hwModalEl.hidden = true;
-                document.body.style.overflow = "";
-            }
-        });
-    }
-
     if (rotationModalEl) {
         rotationModalEl.addEventListener("click", (event) => {
             if (event.target === rotationModalEl) {
@@ -1363,15 +1000,8 @@ function init() {
             if (rotationModalEl && !rotationModalEl.hidden) {
                 closeRotationModal();
             }
-            if (hwModalEl && !hwModalEl.hidden) {
-                hwModalEl.hidden = true;
-                document.body.style.overflow = "";
-            }
         }
     });
-
-    // 筆記與登入
-    initNotes();
 
     // 嘗試自動切到「今天」的課表
     const now = new Date();
